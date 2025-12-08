@@ -1,155 +1,127 @@
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { Home as HomeIcon, LogOut, User } from 'lucide-react'
+import { propertyService } from '../services/propertyService'
+import Navbar from '../components/common/Navbar'
+import PropertyGrid from '../components/property/PropertyGrid'
+import { Search } from 'lucide-react'
 
 export default function Home() {
-  const { user, signOut } = useAuth()
+  const { user } = useAuth()
+  const [properties, setProperties] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [filters, setFilters] = useState({
+    city: '',
+    propertyType: '',
+    minPrice: '',
+    maxPrice: '',
+  })
 
-  const handleSignOut = async () => {
-    await signOut()
+  useEffect(() => {
+    loadProperties()
+  }, [])
+
+  const loadProperties = async () => {
+    try {
+      setLoading(true)
+      const data = await propertyService.getAllProperties(filters)
+      setProperties(data)
+    } catch (error) {
+      console.error('Error loading properties:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
+  const handleSearch = () => {
+    setFilters({ ...filters, city: searchTerm })
+    loadProperties()
+  }
+
+  const filteredProperties = properties.filter(property =>
+    property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    property.city.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      {/* Navbar */}
-      <nav className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-2">
-              <HomeIcon className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">PropertyHub</span>
-            </div>
-            
-            <div className="flex items-center space-x-4">
-              {user ? (
-                <>
-                  <div className="flex items-center space-x-2 text-gray-700">
-                    <User className="w-5 h-5" />
-                    <span className="text-sm">{user.profile?.full_name}</span>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
-                      {user.profile?.role}
-                    </span>
-                  </div>
-                  <button
-                    onClick={handleSignOut}
-                    className="flex items-center space-x-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                  >
-                    <LogOut className="w-4 h-4" />
-                    <span>Sign Out</span>
-                  </button>
-                </>
-              ) : (
-                <>
-                  <Link
-                    to="/signin"
-                    className="px-4 py-2 text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    to="/signup"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                  >
-                    Sign Up
-                  </Link>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gray-50">
+      <Navbar />
 
       {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
-        <div className="text-center">
-          <h1 className="text-5xl font-bold text-gray-900 mb-4">
-            Find Your Dream Property
-          </h1>
-          <p className="text-xl text-gray-600 mb-8">
-            Buy, sell, or rent properties with ease
-          </p>
-          
-          {user ? (
-            <div className="bg-white p-8 rounded-xl shadow-lg inline-block">
-              <h2 className="text-2xl font-semibold mb-4">
-                Welcome, {user.profile?.full_name}! 👋
-              </h2>
-              <p className="text-gray-600 mb-6">
-                You're signed in as a <strong>{user.profile?.role}</strong>
-              </p>
-              
-              <div className="flex gap-4 justify-center">
-                {user.profile?.role === 'admin' && (
-                  <Link
-                    to="/admin"
-                    className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                  >
-                    Go to Admin Dashboard
-                  </Link>
-                )}
-                {user.profile?.role === 'seller' && (
-                  <Link
-                    to="/seller"
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                  >
-                    Go to Seller Dashboard
-                  </Link>
-                )}
-                {user.profile?.role === 'buyer' && (
-                  <button className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                    Browse Properties
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-4 justify-center">
-              <Link
-                to="/signup"
-                className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-lg font-medium"
-              >
-                Get Started
-              </Link>
-              <Link
-                to="/signin"
-                className="px-8 py-3 bg-white text-blue-600 border-2 border-blue-600 rounded-lg hover:bg-blue-50 transition text-lg font-medium"
-              >
-                Sign In
-              </Link>
-            </div>
-          )}
-        </div>
+      <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+              Find Your Dream Property
+            </h1>
+            <p className="text-xl text-blue-100">
+              Discover the perfect place to call home
+            </p>
+          </div>
 
-        {/* Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-20">
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="text-4xl mb-4">🏠</div>
-            <h3 className="text-xl font-semibold mb-2">For Buyers</h3>
-            <p className="text-gray-600">
-              Browse thousands of properties and save your favorites
-            </p>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="text-4xl mb-4">💼</div>
-            <h3 className="text-xl font-semibold mb-2">For Sellers</h3>
-            <p className="text-gray-600">
-              List your properties and reach potential buyers instantly
-            </p>
-          </div>
-          
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="text-4xl mb-4">⚡</div>
-            <h3 className="text-xl font-semibold mb-2">Fast & Secure</h3>
-            <p className="text-gray-600">
-              Quick transactions with secure payment processing
-            </p>
+          {/* Search Bar */}
+          <div className="max-w-3xl mx-auto">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Search by city or property name..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                className="flex-1 px-6 py-4 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <button
+                onClick={handleSearch}
+                className="px-8 py-4 bg-white text-blue-600 rounded-lg hover:bg-blue-50 transition font-semibold flex items-center space-x-2"
+              >
+                <Search className="w-5 h-5" />
+                <span>Search</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Status Indicator */}
-    
+      {/* Properties Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          <div className="bg-white p-6 rounded-xl shadow-md text-center">
+            <div className="text-3xl font-bold text-blue-600 mb-2">
+              {properties.length}
+            </div>
+            <div className="text-gray-600">Properties Available</div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-md text-center">
+            <div className="text-3xl font-bold text-green-600 mb-2">
+              {properties.filter(p => p.status === 'active').length}
+            </div>
+            <div className="text-gray-600">Active Listings</div>
+          </div>
+          <div className="bg-white p-6 rounded-xl shadow-md text-center">
+            <div className="text-3xl font-bold text-purple-600 mb-2">
+              {new Set(properties.map(p => p.city)).size}
+            </div>
+            <div className="text-gray-600">Cities</div>
+          </div>
+        </div>
+
+        {/* Section Title */}
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+            Latest Properties
+          </h2>
+          <p className="text-gray-600">
+            Browse our newest listings
+          </p>
+        </div>
+
+        {/* Property Grid */}
+        <PropertyGrid 
+          properties={searchTerm ? filteredProperties : properties} 
+          loading={loading} 
+        />
+      </div>
     </div>
   )
 }
