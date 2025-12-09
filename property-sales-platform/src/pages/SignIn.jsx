@@ -1,9 +1,11 @@
+// 
+
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { supabase } from '../services/supabaseClient'
 import toast from 'react-hot-toast'
 import { Home, Mail, Lock } from 'lucide-react'
-import { supabase } from '../services/supabaseClient'
 
 export default function SignIn() {
   const [formData, setFormData] = useState({
@@ -26,19 +28,27 @@ export default function SignIn() {
 
     setLoading(true)
     try {
+      // Sign in the user
       const { user } = await signIn(formData.email, formData.password)
       
-      toast.success('Welcome back! 👋')
-      
-      // Get user role and redirect accordingly
-      const { data: profile } = await supabase
+      // Get user's role from profile
+      const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
         .select('role')
         .eq('id', user.id)
         .single()
 
+      if (profileError) {
+        console.error('Profile error:', profileError)
+        toast.error('Failed to load user profile')
+        return
+      }
+
       const role = profile?.role
 
+      toast.success('Welcome back! 👋')
+      
+      // Redirect based on role
       if (role === 'admin') {
         navigate('/admin')
       } else if (role === 'seller') {
@@ -47,6 +57,7 @@ export default function SignIn() {
         navigate('/')
       }
     } catch (error) {
+      console.error('Sign in error:', error)
       toast.error(error.message || 'Invalid email or password')
     } finally {
       setLoading(false)
