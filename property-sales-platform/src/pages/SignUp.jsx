@@ -1,220 +1,228 @@
-// 
-
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { supabaseClient } from '../services/supabaseClient'
-import '../styles/auth.css'
+import { useAuth } from '../context/AuthContext'
+import toast from 'react-hot-toast'
+import { Home } from 'lucide-react'
 
-const SignUp = () => {
-  const navigate = useNavigate()
+export default function SignUp() {
   const [formData, setFormData] = useState({
-    fullName: '',
     email: '',
-    phone: '',
     password: '',
     confirmPassword: '',
+    fullName: '',
+    phone: '',
     role: 'buyer',
   })
-  const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
+  const { signUp } = useAuth()
+  const navigate = useNavigate()
 
   const handleChange = (e) => {
-    const { name, value } = e.target
-    setFormData(prev => ({ ...prev, [name]: value }))
-  }
-
-  const validateForm = () => {
-    const newErrors = {}
-    if (!formData.fullName.trim()) newErrors.fullName = 'Full name is required'
-    if (!formData.email.trim()) newErrors.email = 'Email is required'
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid'
-    if (!formData.password) newErrors.password = 'Password is required'
-    else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters'
-    if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match'
-    setErrors(newErrors)
-    return Object.keys(newErrors).length === 0
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    })
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!validateForm()) return
+
+    // Validation
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match!')
+      return
+    }
+
+    if (formData.password.length < 6) {
+      toast.error('Password must be at least 6 characters!')
+      return
+    }
+
+    if (!formData.fullName.trim()) {
+      toast.error('Please enter your full name!')
+      return
+    }
+
+    console.log('📝 Form Data:', {
+      email: formData.email,
+      fullName: formData.fullName,
+      phone: formData.phone,
+      role: formData.role,
+    })
 
     setLoading(true)
     try {
-      // 1. Sign up user with Supabase Auth
-      const { data: authData, error: authError } = await supabaseClient.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+      console.log('🚀 Starting signup process...')
+      
+      const result = await signUp(formData.email, formData.password, {
+        fullName: formData.fullName,
+        phone: formData.phone,
+        role: formData.role,
       })
-
-      if (authError) throw authError
-
-      const userId = authData.user.id
-      console.log('User created with ID:', userId)
-
-      // 2. Create user profile in user_profiles table
-      const { data: profileData, error: profileError } = await supabaseClient
-        .from('user_profiles')
-        .insert([
-          {
-            id: userId,
-            email: formData.email,
-            full_name: formData.fullName,
-            phone: formData.phone || null,
-            role: formData.role,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }
-        ])
-        .select()
-
-      if (profileError) {
-        console.error('Profile creation error:', profileError)
-        throw profileError
-      }
-
-      console.log('Profile created:', profileData)
-
-      alert('Account created successfully! Please check your email to verify.')
-
+      
+      console.log('✅ Signup completed successfully!')
+      toast.success('Account created successfully! 🎉')
+      
+      // Wait a moment for the session to be established
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
       // Redirect based on role
-      setTimeout(() => {
-        if (formData.role === 'seller') {
-          navigate('/seller-dashboard')
-        } else if (formData.role === 'admin') {
-          navigate('/admin-dashboard')
-        } else {
-          navigate('/home')
-        }
-      }, 1000)
-
+      console.log('🔄 Redirecting to:', formData.role)
+      if (formData.role === 'admin') {
+        navigate('/admin')
+      } else if (formData.role === 'seller') {
+        navigate('/seller')
+      } else {
+        navigate('/')
+      }
     } catch (error) {
-      console.error('Signup error:', error)
-      setErrors({ submit: error.message || 'Error creating account' })
+      console.error('❌ Signup failed:', error)
+      toast.error(error.message || 'Failed to create account')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <h1>Create Account</h1>
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label htmlFor="fullName">Full Name *</label>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-xl shadow-2xl">
+        {/* Header */}
+        <div className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="bg-blue-600 p-3 rounded-full">
+              <Home className="w-8 h-8 text-white" />
+            </div>
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900">Create Account</h2>
+          <p className="mt-2 text-gray-600">Join our property marketplace</p>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          {/* Full Name */}
+          <div>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+              Full Name *
+            </label>
             <input
-              type="text"
               id="fullName"
               name="fullName"
+              type="text"
+              required
               value={formData.fullName}
               onChange={handleChange}
-              placeholder="Enter your full name"
-              className="form-input"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              placeholder="John Doe"
             />
-            {errors.fullName && <span className="error">{errors.fullName}</span>}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="email">Email *</label>
+          {/* Email */}
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address *
+            </label>
             <input
-              type="email"
               id="email"
               name="email"
+              type="email"
+              required
               value={formData.email}
               onChange={handleChange}
-              placeholder="Enter your email"
-              className="form-input"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              placeholder="john@example.com"
             />
-            {errors.email && <span className="error">{errors.email}</span>}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="phone">Phone (Optional)</label>
+          {/* Phone */}
+          <div>
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              Phone Number (Optional)
+            </label>
             <input
-              type="tel"
               id="phone"
               name="phone"
+              type="tel"
               value={formData.phone}
               onChange={handleChange}
-              placeholder="Enter your phone number"
-              className="form-input"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              placeholder="+1 (555) 000-0000"
             />
           </div>
 
-          <div className="form-group">
-            <label htmlFor="password">Password *</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter password (min 6 characters)"
-              className="form-input"
-            />
-            {errors.password && <span className="error">{errors.password}</span>}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="confirmPassword">Confirm Password *</label>
-            <input
-              type="password"
-              id="confirmPassword"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="Confirm password"
-              className="form-input"
-            />
-            {errors.confirmPassword && <span className="error">{errors.confirmPassword}</span>}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="role">I am a: *</label>
+          {/* Role Selection */}
+          <div>
+            <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">
+              I want to *
+            </label>
             <select
               id="role"
               name="role"
               value={formData.role}
               onChange={handleChange}
-              className="form-input"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
             >
-              <option value="buyer">Buyer</option>
-              <option value="seller">Seller</option>
-              <option value="admin">Admin</option>
+              <option value="buyer">Buy Properties (Buyer)</option>
+              <option value="seller">Sell Properties (Seller)</option>
+              <option value="admin">Admin Access</option>
             </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Current selection: <strong className="text-blue-600">{formData.role}</strong>
+            </p>
           </div>
 
-          {errors.submit && (
-            <div className="error-box">
-              <span className="error">{errors.submit}</span>
-            </div>
-          )}
+          {/* Password */}
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Password *
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              placeholder="••••••••"
+            />
+            <p className="mt-1 text-xs text-gray-500">Minimum 6 characters</p>
+          </div>
 
-          <button 
-            type="submit" 
-            className="btn-primary" 
+          {/* Confirm Password */}
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Confirm Password *
+            </label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition"
+              placeholder="••••••••"
+            />
+          </div>
+
+          {/* Submit Button */}
+          <button
+            type="submit"
             disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 focus:ring-4 focus:ring-blue-300 font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? 'Creating Account...' : 'Sign Up'}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
-        <p className="auth-link">
-          Already have an account? <Link to="/signin">Sign in</Link>
+        {/* Sign In Link */}
+        <p className="text-center text-sm text-gray-600">
+          Already have an account?{' '}
+          <Link to="/signin" className="font-medium text-blue-600 hover:text-blue-700">
+            Sign in here
+          </Link>
         </p>
       </div>
     </div>
   )
 }
-
-export default SignUp
-
-
-ReactDOM.createRoot(document.getElementById('root')).render(
-  <React.StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </React.StrictMode>,
-)

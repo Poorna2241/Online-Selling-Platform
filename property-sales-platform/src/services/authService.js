@@ -1,51 +1,59 @@
-// 
-
 import { supabase } from './supabaseClient'
 
 export const authService = {
   // Sign up new user
   signUp: async (email, password, userData) => {
     try {
+      console.log('🔵 Step 1: Creating auth user...')
+      
       // 1. Create auth user
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
       })
 
-      if (authError) throw authError
-
-      // 2. Wait a moment for the trigger to create the profile
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      // 3. Update user profile with correct role and additional info
-      if (authData.user) {
-        const { error: profileError } = await supabase
-          .from('user_profiles')
-          .update({
-            full_name: userData.fullName,
-            phone: userData.phone,
-            role: userData.role, // This will update the role from 'buyer' to selected role
-          })
-          .eq('id', authData.user.id)
-
-        if (profileError) {
-          console.error('Profile update error:', profileError)
-          throw profileError
-        }
-
-        // 4. Verify the update worked
-        const { data: verifyProfile } = await supabase
-          .from('user_profiles')
-          .select('role')
-          .eq('id', authData.user.id)
-          .single()
-
-        console.log('✅ Profile created with role:', verifyProfile?.role)
+      if (authError) {
+        console.error('❌ Auth error:', authError)
+        throw authError
       }
+
+      if (!authData.user) {
+        throw new Error('User creation failed')
+      }
+
+      console.log('✅ Step 2: Auth user created:', authData.user.id)
+
+      // 2. Create or update user profile manually
+      console.log('🔵 Step 3: Creating user profile...')
+      
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          id: authData.user.id,
+          email: email,
+          full_name: userData.fullName,
+          phone: userData.phone || null,
+          role: userData.role,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'id'
+        })
+        .select()
+
+      if (profileError) {
+        console.error('❌ Profile error:', profileError)
+        // If profile creation fails, delete the auth user
+        await supabase.auth.admin.deleteUser(authData.user.id)
+        throw new Error('Failed to create user profile: ' + profileError.message)
+      }
+
+      console.log('✅ Step 4: Profile created successfully!')
+      console.log('✅ Final role:', userData.role)
 
       return authData
     } catch (error) {
-      console.error('Sign up error:', error)
+      console.error('❌ Sign up error:', error)
       throw error
     }
   },
@@ -59,9 +67,11 @@ export const authService = {
       })
 
       if (error) throw error
+      
+      console.log('✅ Sign in successful')
       return data
     } catch (error) {
-      console.error('Sign in error:', error)
+      console.error('❌ Sign in error:', error)
       throw error
     }
   },
@@ -71,8 +81,9 @@ export const authService = {
     try {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
+      console.log('✅ Sign out successful')
     } catch (error) {
-      console.error('Sign out error:', error)
+      console.error('❌ Sign out error:', error)
       throw error
     }
   },
@@ -92,11 +103,15 @@ export const authService = {
         .eq('id', user.id)
         .single()
 
-      if (profileError) throw profileError
+      if (profileError) {
+        console.error('❌ Profile fetch error:', profileError)
+        throw profileError
+      }
 
+      console.log('✅ Current user:', user.email, '| Role:', profile?.role)
       return { ...user, profile }
     } catch (error) {
-      console.error('Get current user error:', error)
+      console.error('❌ Get current user error:', error)
       return null
     }
   },
@@ -113,7 +128,7 @@ export const authService = {
       if (error) throw error
       return data?.role
     } catch (error) {
-      console.error('Get user role error:', error)
+      console.error('❌ Get user role error:', error)
       return null
     }
   },
